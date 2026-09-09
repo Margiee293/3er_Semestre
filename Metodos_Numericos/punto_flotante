@@ -1,0 +1,125 @@
+def flotante_binario(flotante, bytes_utilizados=4):
+    if bytes_utilizados != 4:
+        raise ValueError(
+            "Este cálculo manual está implementado para precisión simple (4 bytes)."
+        )
+
+    if flotante < 0:
+        signo = "1"
+        flotante = abs(flotante)
+    else:
+        signo = "0"
+
+    if flotante == 0.0:
+        return "0" * 32
+
+    entero = int(flotante)
+    fraccion = flotante - entero
+    binario_entero = bin(entero)[2:] if entero > 0 else ""
+
+    # 3. Parte fraccionaria a binario
+    binario_fraccion = []
+    limite_bits = 128  # Límite amplio para encontrar los unos necesarios
+    count = 0
+
+    while fraccion > 0 and count < limite_bits:
+        fraccion *= 2
+        bit = int(fraccion)
+        binario_fraccion.append(str(bit))
+        fraccion -= bit
+        count += 1
+
+    str_fraccion = "".join(binario_fraccion)
+
+    # 4. Normalización 1.xxx... * 2^E
+    if entero > 0:
+        exponente_real = len(binario_entero) - 1
+        mantisa_raw = binario_entero[1:] + str_fraccion
+    else:
+        primer_uno = str_fraccion.find("1")
+        if primer_uno == -1:
+            return "0" * 32
+        exponente_real = -(primer_uno + 1)
+        mantisa_raw = str_fraccion[primer_uno + 1 :]
+
+    # 5. Exponente con Sesgo (127 para 32 bits)
+    exponente_sesgado = exponente_real + 127
+    binario_exponente = bin(exponente_sesgado)[2:].zfill(8)
+
+    # 6. Ajustar la Mantisa a 23 bits
+    mantisa = mantisa_raw[:23].ljust(23, "0")
+
+    return signo + binario_exponente + mantisa
+
+
+def binario_flotante(binario):
+    # Validar longitud para 32 bits (4 bytes)
+    if len(binario) != 32:
+        raise ValueError("El número binario debe tener exactamente 32 bits.")
+
+    # 1. Separar componentes del estándar IEEE 754
+    signo_bit = binario[0]
+    exponente_bits = binario[1:9]
+    mantisa_bits = binario[9:]
+
+    # Casos especiales: Cero
+    if binario == "0" * 32:
+        return 0.0
+
+    # 2. Convertir exponente a decimal y restar el sesgo (127)
+    exponente_sesgado = int(exponente_bits, 2)
+    exponente_real = exponente_sesgado - 127
+
+    # 3. Reconstruir la mantisa (1.xxx... en binario)
+    valor_mantisa = 1.0
+    for i, bit in enumerate(mantisa_bits):
+        if bit == "1":
+            valor_mantisa += 2 ** -(i + 1)
+
+    # 4. Aplicar la fórmula: (-1)^signo * mantisa * 2^exponente
+    resultado = (valor_mantisa) * (2**exponente_real)
+
+    if signo_bit == "1":
+        resultado = -resultado
+
+    return resultado
+
+
+def main():
+    print("Conversión de números flotantes a binarios y viceversa (IEEE 754)")
+    try:
+        bytes_utilizados = int(
+            input(
+                "¿Cuántos bytes desea utilizar para la representación? (solo 4): "
+            )
+        )
+        if bytes_utilizados != 4:
+            print("Por ahora solo se soporta la representación de 4 bytes.")
+            return
+
+        print("\n1. Flotante a Binario")
+        print("2. Binario a Flotante")
+        opcion = input("Seleccione una opción (1 o 2): ")
+
+        if opcion == "1":
+            flotante = float(input("Ingrese un número flotante: "))
+            binario = flotante_binario(flotante, bytes_utilizados)
+            print(f"\nSigno (1 bit):      {binario[0]}")
+            print(f"Exponente (8 bits): {binario[1:9]}")
+            print(f"Mantisa (23 bits):  {binario[9:]}")
+            print(f"Resultado final:    {binario}")
+
+        elif opcion == "2":
+            binario = input("Ingrese el binario de 32 bits: ").strip()
+            flotante = binario_flotante(binario)
+            print(f"\nEl número flotante es: {flotante}")
+
+        else:
+            print("Opción no válida")
+
+    except ValueError as e:
+        print(f"Error de entrada: {e}")
+
+
+if __name__ == "__main__":
+    main()
